@@ -1,0 +1,137 @@
+"""Generate 04_spatial_reasoning_ablation.ipynb notebook."""
+
+import json
+from pathlib import Path
+
+notebook_content = {
+    "cells": [
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "# 04. Research Hypothesis 2: Topological & Spatial Relation Reasoning\n",
+                "\n",
+                "**ARC Prize 2026 Research Project**  \n",
+                "This notebook evaluates whether explicit topological primitives (cavity enclosure, boundary tracing, region adjacency) and continuous raycasting primitives (directional line propagation, obstacle collision) improve held-out ARC generalization.\n",
+                "\n",
+                "### Ablation Configurations (A through G):\n",
+                "- **A. Baseline v1**\n",
+                "- **B. Object Solver v1**\n",
+                "- **C. Baseline + Topology Only**\n",
+                "- **D. Baseline + Raycasting Only**\n",
+                "- **E. Baseline + Topology + Raycasting**\n",
+                "- **F. Object Solver + Topology**\n",
+                "- **G. Full Spatial-Object Solver**\n"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "%matplotlib inline\n",
+                "import json\n",
+                "import sys\n",
+                "from pathlib import Path\n",
+                "import matplotlib.pyplot as plt\n",
+                "import numpy as np\n",
+                "\n",
+                "project_root = Path.cwd().parent if Path.cwd().name == \"notebooks\" else Path.cwd()\n",
+                "if str(project_root) not in sys.path:\n",
+                "    sys.path.insert(0, str(project_root))\n",
+                "\n",
+                "from src.data.loader import load_task\n",
+                "from src.data.visualizer import plot_task\n",
+                "from src.topology.engine import enclosure_detection, flood_fill\n",
+                "from src.spatial.raycast import raycast\n",
+                "\n",
+                "print(\"Spatial & Topology modules loaded successfully!\")"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 1. Load Experimental Results"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "results_file = project_root / \"results\" / \"spatial_reasoning_v1.json\"\n",
+                "\n",
+                "with open(results_file, \"r\", encoding=\"utf-8\") as f:\n",
+                "    results = json.load(f)\n",
+                "\n",
+                "eval_split = results[\"eval_split\"]\n",
+                "train_split = results[\"train_split\"]\n",
+                "targeted_split = results[\"targeted_split\"]\n",
+                "\n",
+                "print(f\"{'Solver Configuration':<38} | {'Eval Acc':<10} | {'Train Acc':<10} | {'Targeted Acc':<12}\")\n",
+                "print(\"-\" * 78)\n",
+                "for name in eval_res_keys := eval_split.keys():\n",
+                "    ev_acc = eval_split[name]['task_level_accuracy_pct']\n",
+                "    tr_acc = train_split[name]['task_level_accuracy_pct']\n",
+                "    tg_acc = targeted_split[name]['task_level_accuracy_pct']\n",
+                "    print(f\"{name:<38} | {ev_acc:>6.2f}%    | {tr_acc:>6.2f}%    | {tg_acc:>8.2f}%\")"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 2. Visualization of Spatial & Topological Primitives"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "from src.data.models import Grid\n",
+                "\n",
+                "# Enclosure & Cavity Fill Visualization\n",
+                "grid = Grid.from_list([\n",
+                "    [1, 1, 1, 0, 2, 2, 2],\n",
+                "    [1, 0, 1, 0, 2, 0, 2],\n",
+                "    [1, 1, 1, 0, 2, 2, 2],\n",
+                "])\n",
+                "\n",
+                "enclosures = enclosure_detection(grid, background=0)\n",
+                "print(f\"Detected Enclosed Cavities: {len(enclosures)}\")\n",
+                "for i, enc in enumerate(enclosures):\n",
+                "    print(f\"Cavity {i+1}: size={enc['region_size']}, boundary_colors={enc['boundary_colors']}\")"
+            ]
+        }
+    ],
+    "metadata": {
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3"
+        },
+        "language_info": {
+            "codemirror_mode": {"name": "ipython", "version": 3},
+            "file_extension": ".py",
+            "mimetype": "text/x-python",
+            "name": "python",
+            "nbconvert_exporter": "python",
+            "pygments_lexer": "ipython3",
+            "version": "3.10"
+        }
+    },
+    "nbformat": 4,
+    "nbformat_minor": 4
+}
+
+out_path = Path(r"C:\Users\DELL\.gemini\antigravity\scratch\arc-reasoning-agent\notebooks\04_spatial_reasoning_ablation.ipynb")
+out_path.parent.mkdir(parents=True, exist_ok=True)
+with open(out_path, "w", encoding="utf-8") as f:
+    json.dump(notebook_content, f, indent=2)
+
+print(f"Notebook 04 generated at: {out_path}")

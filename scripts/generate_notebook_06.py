@@ -1,0 +1,188 @@
+"""Generates the Kaggle submission notebook (06_arc_agi_2_submission.ipynb)."""
+
+import json
+from pathlib import Path
+
+notebook_content = {
+    "cells": [
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "# ARC Prize 2026: Hierarchical Sub-Goal Decomposition Solver\n",
+                "\n",
+                "## 1. Project Overview\n",
+                "This notebook implements a deterministic, search-based program synthesis solver for the ARC-AGI benchmark. It uses a **Hierarchical Sub-Goal Decomposition** approach:\n",
+                "- **State Representation**: Extracts topological, spatial, and geometric properties.\n",
+                "- **Sub-Goal Generation**: Computes state differences between input/output training pairs to dynamically propose intermediate property goals (e.g. `fill_enclosed_region`, `increase_symmetry`).\n",
+                "- **Hierarchical Planning**: Uses A* search to synthesize composable multi-step program pipelines up to depth $k=4$, guided by property heuristics.\n",
+                "\n",
+                "This solver does not use LLMs, external ML models, or network calls, and strictly relies on deterministic rule execution.\n"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 2. Environment Setup\n",
+                "We append our dataset repository to `sys.path` so we can import our solver directly."
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "import json\n",
+                "import sys\n",
+                "import time\n",
+                "from pathlib import Path\n",
+                "\n",
+                "# Assuming the repo is mounted as a Kaggle Dataset at this path:\n",
+                "REPO_DATASET_PATH = \"/kaggle/input/arc-reasoning-agent\"\n",
+                "if REPO_DATASET_PATH not in sys.path:\n",
+                "    sys.path.insert(0, REPO_DATASET_PATH)\n",
+                "\n",
+                "# Print sys.path to verify\n",
+                "print(\"sys.path:\", sys.path[:3])"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 3. Load Competition Data"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "from src.data.loader import load_task_from_dict\n",
+                "\n",
+                "# Standard ARC Prize 2024 / ARC-AGI-2 test path\n",
+                "TEST_DATA_PATH = Path(\"/kaggle/input/arc-prize-2024/arc-agi_test_challenges.json\")\n",
+                "\n",
+                "# Fallback for local testing if running outside Kaggle\n",
+                "if not TEST_DATA_PATH.exists():\n",
+                "    print(\"Warning: Kaggle test path not found, falling back to local ARC-AGI-2 eval data.\")\n",
+                "    TEST_DATA_PATH = Path(REPO_DATASET_PATH) / \"data\" / \"ARC-AGI-2\" / \"data\" / \"evaluation\"\n",
+                "    \n",
+                "tasks = {}\n",
+                "if TEST_DATA_PATH.is_dir():\n",
+                "    from src.data.loader import load_dataset\n",
+                "    tasks = load_dataset(TEST_DATA_PATH, recursive=True)\n",
+                "else:\n",
+                "    with open(TEST_DATA_PATH, \"r\", encoding=\"utf-8\") as f:\n",
+                "        raw_data = json.load(f)\n",
+                "    for task_id, task_dict in raw_data.items():\n",
+                "        tasks[task_id] = load_task_from_dict(task_id, task_dict, is_test=True)\n",
+                "        \n",
+                "print(f\"Loaded {len(tasks)} test tasks.\")"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 4. Run Inference & Generate Predictions\n",
+                "We use the `generate_submission_dict` utility which processes all tasks, applies the `RuleBasedHierarchicalSolver_v1`, and automatically provides valid grid fallbacks if a task fails or times out."
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "from src.submission.submission_generator import generate_submission_dict\n",
+                "\n",
+                "print(\"Starting inference...\")\n",
+                "submission, report = generate_submission_dict(tasks)\n",
+                "print(\"Inference complete.\")"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 5. Validate and Save Submission"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "from src.submission.validation import validate_submission\n",
+                "\n",
+                "try:\n",
+                "    validate_submission(submission, expected_tasks=tasks)\n",
+                "    print(\"Validation PASSED.\")\n",
+                "except Exception as e:\n",
+                "    print(f\"Validation FAILED: {e}\")\n",
+                "\n",
+                "OUTPUT_PATH = \"/kaggle/working/submission.json\"\n",
+                "with open(OUTPUT_PATH, \"w\", encoding=\"utf-8\") as f:\n",
+                "    json.dump(submission, f)\n",
+                "print(f\"Saved submission to {OUTPUT_PATH}\")"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 6. Execution Summary"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "print(\"=\"*50)\n",
+                "print(\"SUBMISSION RUN REPORT\")\n",
+                "print(\"=\"*50)\n",
+                "print(f\"Total Tasks:         {report['total_tasks']}\")\n",
+                "print(f\"Successful Search:   {report['successful_tasks']}\")\n",
+                "print(f\"Failed / Fallbacks:  {report['failed_tasks']}\")\n",
+                "print(f\"Total Runtime (s):   {report['runtime_seconds']}\")\n",
+                "print(\"=\"*50)"
+            ]
+        }
+    ],
+    "metadata": {
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3"
+        },
+        "language_info": {
+            "codemirror_mode": {"name": "ipython", "version": 3},
+            "file_extension": ".py",
+            "mimetype": "text/x-python",
+            "name": "python",
+            "nbconvert_exporter": "python",
+            "pygments_lexer": "ipython3",
+            "version": "3.10"
+        }
+    },
+    "nbformat": 4,
+    "nbformat_minor": 4
+}
+
+def main():
+    project_root = Path(__file__).resolve().parent.parent
+    out_path = project_root / "notebooks" / "06_arc_agi_2_submission.ipynb"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(notebook_content, f, indent=2)
+    print(f"Generated notebook at {out_path}")
+
+if __name__ == "__main__":
+    main()
